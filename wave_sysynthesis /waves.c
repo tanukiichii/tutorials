@@ -23,7 +23,7 @@ double sample_dt;
 unsigned int sample_N;
 unsigned int i_t = 0;
 
-/* ===== генерация волн ===== */
+// генерация волн
 
 double sine_wave(unsigned int i) 
 {
@@ -68,8 +68,6 @@ void update_frequency()
     sample_N  = SAMPLE_RATE / frequency;
 }
 
-/* ===== аудио ===== */
-
 void audio_callback(void *userdata, Uint8 *stream, int len) 
 {
     float *buffer = (float *)stream;
@@ -93,8 +91,6 @@ void audio_callback(void *userdata, Uint8 *stream, int len)
         if (i_t >= sample_N) i_t = 0;
     }
 }
-
-/* ===== текст ===== */
 
 const char* wave_name()
 {
@@ -122,7 +118,6 @@ void draw_text(SDL_Renderer *r, TTF_Font *font, int x, int y, const char *text)
     SDL_DestroyTexture(tex);
 }
 
-/* ===== main ===== */
 
 int main()
 {
