@@ -342,7 +342,7 @@ float process_filter(Filter *f, float x)
     return x;
 }
 
-void add_filter()ы
+void add_filter()
 {
     if (filter_count >= MAX_FILTERS) return;
 
