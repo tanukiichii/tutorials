@@ -14,9 +14,9 @@ This repo contains small focused projects related to sound synthesis.
 
 You’ll find things like:
 
-- [**Wave Generator**](./wave_generator/)  
-- [**Additive Synthesis**](./additive_synth/)  
-- [**Subtractive Synthesis**](./subtractive_synth/)  
+- [**Wave Generator**](./wave_synthesis/)  
+- [**Additive Synthesis**](./additive_synthesis/)  
+- [**Subtractive Synthesis**](./subtractive_synthesis/)  
 - Other small sound experiments  
 
 Each folder is its own mini-project with its own README explaining what’s going on.
