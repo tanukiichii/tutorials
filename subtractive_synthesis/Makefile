@@ -9,7 +9,7 @@ LIBS = `sdl2-config --libs` -lSDL2_ttf -lm
 TARGET = subtractive_synth
 
 # ===== Source =====
-SRC = subtractive_synth.c
+SRC = subtractive_synth.c #true_subtractive_synth.c
 
 # ===== Build =====
 $(TARGET): $(SRC)
