@@ -3,7 +3,7 @@
 #include <math.h>
 #include <stdio.h>
 
-#define SAMPLE_RATE 22100
+#define SAMPLE_RATE 44100
 #define PI 3.14159265359
 #define MAX_OSC 8
 #define WAVE_BUF 1024
