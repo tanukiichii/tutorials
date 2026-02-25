@@ -119,7 +119,7 @@ This project contains a `Makefile`. To build the program, simply run:
 ```bash
 make        
 ```
-This will compile the code and produce the executable (e.g., wave_generator).
+This will compile the code and produce the executable.
 To run the program:
 ```bash
 ./add_synth       
