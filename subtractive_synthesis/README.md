@@ -114,7 +114,17 @@ sudo apt install libsdl2-dev libsdl2-ttf-dev
 ```
 ### Build instructions
 
-This project contains a `Makefile`. To build the program, simply run:
+The project uses a single Makefile.
+
+Inside the Makefile, the source file is selected via the SRC variable.
+
+Example:
+
+```makefile
+# Choose one:
+SRC = subtractive_synth.c #true_subtractive_synth.c
+```
+To build:
 
 ```bash
 make        
@@ -122,8 +132,10 @@ make
 This will compile the code and produce the executable.
 To run the program:
 ```bash
-./add_synth       
+./subtractive_synth        
 ```
+(or the name defined in the Makefile)
+
 Or u can build and run the programm with one command:
 ```bash
 make run
