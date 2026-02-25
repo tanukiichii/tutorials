@@ -67,8 +67,8 @@ int playing = 0;
 float wave_vis[WAVE_BUF];
 int wave_pos = 0;
 
-SDL_Color white = {240,240,240};
-SDL_Color black = {30,30,30};
+SDL_Color white = {240,240,240,255};
+SDL_Color black = {30,30,30,255};
 SDL_Rect button_add = {20, 20, 60, 40};
 
 /* ==== octave ==== */
@@ -317,8 +317,8 @@ float gen_voice(Voice *v)
 
     if (v->phase > 2 * PI) v->phase -= 2 * PI;
 
-    if (wave == WAVE_SQUARE) return sinf(phase) > 0 ? 1.0f : -1.0f;
-    if (wave == WAVE_TRIANGLE) return asinf(sinf(phase)) * 2 / PI;
+    if (wave == WAVE_SQUARE) return sinf(v->phase) > 0 ? 1.0f : -1.0f;
+    if (wave == WAVE_TRIANGLE) return asinf(sinf(v->phase)) * 2 / PI;
     if (wave == WAVE_SAW) return 2.0f * (v->phase / (2 * PI)) - 1.0f;
 }
 
@@ -375,8 +375,6 @@ void audio_callback(void *u, Uint8 *stream, int len)
 {
     float *buf = (float *)stream;
     int samples = len / sizeof(float);
-    float target_amp;
-    float amp;
 
     for (int i = 0; i < samples; i++)
     {
