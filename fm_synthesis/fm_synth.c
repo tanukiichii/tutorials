@@ -9,6 +9,7 @@
 #define WAVE_BUF 1024
 
 typedef enum {WAVE_SIN, WAVE_SAW, WAVE_SQUARE, WAVE_TRIANGLE} WaveType;
+typedef enum {HARMONIC, INHARMONIC} FModType;
 
 const char *wave_names[] = {"Sine", "Saw", "Square", "Triangle"};
 
@@ -25,7 +26,9 @@ typedef struct {
     float freq;
     float phase;
     float betta;
+    float ratio; 
     WaveType fwave;
+    FModType type;
 } FMod;
 
 typedef struct {
@@ -56,7 +59,7 @@ int keymap_size = sizeof(keymap) / sizeof(KeyNote);
 int last_key = -1;
 
 Voice voices[MAX_VOICES];
-FMod fm;
+FMod fm[MAX_VOICES];
 float phase = 0;
 int playing = 0;
 int fmod_on = 0;
@@ -164,6 +167,9 @@ int main()
                         voices[v].key = keymap[i].key;
                         voices[v].freq = keymap[i].freq;
 
+                        if (fmod_on == 1 && fm[0].type == HARMONIC)
+                            fm[v].freq = keymap[i].freq * fm[0].ratio;
+
                         break;
                     }
                 }
@@ -172,14 +178,23 @@ int main()
                 {
                     FMod *f = &fm;
 
-                    if (e.key.keysym.sym == SDLK_q)
-                        f->fwave = (f->fwave + 1) % 4;
-
-                    if (e.key.keysym.sym == SDLK_UP ) f->freq += 1.0f;
-                    if (e.key.keysym.sym == SDLK_DOWN && f->freq > 0) f->freq -= 1.0f;
-
+                    if (e.key.keysym.sym == SDLK_q) f->fwave = (f->fwave + 1) % 4;
+                    if (e.key.keysym.sym == SDLK_w) f->type = (f->type + 1) % 2;
                     if (e.key.keysym.sym == SDLK_RIGHT && f->betta <1.0f) f->betta += 0.05f;
                     if (e.key.keysym.sym == SDLK_LEFT && f->betta > 0) f->betta -= 0.05f;
+
+                    if (f->type == HARMONIC)
+                    {
+                        if (e.key.keysym.sym == SDLK_e && f->ratio > 1) f->ratio -= 1.0f;
+                        if (e.key.keysym.sym == SDLK_r && f->ratio >= 1) f->ratio += 1.0f;
+                        if (e.key.keysym.sym == SDLK_e && f->ratio <= 1) f->ratio = 1 / (pow(f->ratio, -1.0f) + 1);
+                        if (e.key.keysym.sym == SDLK_r && f->ratio < 1) f->ratio = 1 / (pow(f->ratio, -1.0f) - 1);
+                    }
+                    if (e.key.keysym.sym == SDLK_BACKSPACE)
+                    {
+                        fmod_on = 0;
+                        continue;
+                    }
                 }
             }
             if (e.type == SDL_KEYUP)
@@ -221,21 +236,36 @@ int main()
             SDL_RenderFillRect(ren, &hl);
         }
 
-        if(fmod_on == 1)
+        if(fmod_on == 1 && fm[0].type == INHARMONIC)
         {
             char buf[128];
-            sprintf(buf, "Modulator");
+            sprintf(buf, "Inharmonic modulator");
 
             draw_text(ren, font_main, 30, y, buf, white);
             y += 30;
             sprintf(buf, "Waveform: %s  Freq=%.0fHz  Frequency modulation index=%.1f",
-                wave_names[fm.fwave], fm.freq, fm.betta);
+                wave_names[fm[0].fwave], fm[0].freq, fm[0].betta);
+
+            draw_text(ren, font, 30, y, buf, white);
+        }
+        else if (fmod_on == 1 && fm[0].type == HARMONIC)
+        {   
+            char buf[128];
+            sprintf(buf, "Harmonic modulator");
+
+            draw_text(ren, font_main, 30, y, buf, white);
+            y += 30;
+            sprintf(buf, "Waveform: %s  Ratio:%.3f  Frequency modulation index=%.1f",
+                wave_names[fm[0].fwave], fm[0].ratio, fm[0].betta);
 
             draw_text(ren, font, 30, y, buf, white);
         }
 
-        draw_text(ren, font, 50, 650,
-            " + add modulator | Q modulator waveform | arrows freq/amp | 1/2 octave | ESC exit", white);
+        draw_text(ren, font, 200, 640,
+            " + add modulator | 1/2 octave | ESC exit", white);
+
+        draw_text(ren, font, 70, 670,    
+            "Q modulator waveform | W modulator type | arrows freq/amp | A/S ratio", white);
         
         draw_wave(ren);
         draw_keyboard_hint(ren, font);
@@ -270,7 +300,8 @@ void octave_down()
 void init_voices()
 {
     for (int i = 0; i < MAX_VOICES; i++)
-    {    voices[i].active = 0;
+    {    
+        voices[i].active = 0;
         voices[i].wave = WAVE_SIN;
     }
 }
@@ -340,10 +371,12 @@ void add_fmod()
 {
     if (fmod_on == 1) return;
 
-    fm.freq = 20.0f;
-    fm.betta = 0.2f;
-    fm.phase = 0.0f;
-    fm.fwave = WAVE_SIN;
+    fm[0].freq = 20.0f;
+    fm[0].betta = 0.2f;
+    fm[0].phase = 0.0f;
+    fm[0].ratio = 1.0f;
+    fm[0].fwave = WAVE_SIN;
+    fm[0].type = INHARMONIC;
 
     fmod_on = 1;
 }
