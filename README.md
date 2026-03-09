@@ -17,6 +17,7 @@ You’ll find things like:
 - [**Wave Generator**](./wave_synthesis%20/)  
 - [**Additive Synthesis**](./additive_synthesis/)  
 - [**Subtractive Synthesis**](./subtractive_synthesis/)  
+- [**Drum sample synth**](./noise_envelope/)
 - Other small sound experiments  
 
 Each folder is its own mini-project with its own README explaining what’s going on.
