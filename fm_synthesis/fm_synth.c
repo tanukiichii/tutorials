@@ -18,7 +18,6 @@ typedef struct {
     SDL_Keycode key;
     float freq;
     float phase;
-    float ang_freq;
     WaveType wave;
 } Voice;
 
