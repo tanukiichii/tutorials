@@ -73,6 +73,7 @@ SDL_Rect button_add = {20, 20, 60, 40};
 /* ==== octave ==== */
 void octave_up();
 void octave_down();
+void sync_fmod_settings();
 
 /* ==== poliphony ==== */
 void init_voices();
@@ -94,6 +95,9 @@ void audio_callback(void *u, Uint8 *stream, int len);
 void draw_text(SDL_Renderer *r, TTF_Font *f, int x, int y, const char *txt, SDL_Color c);
 void draw_wave(SDL_Renderer *r);
 void draw_keyboard_hint(SDL_Renderer *r, TTF_Font *font);
+TTF_Font *open_font_fallback(const char *primary, const char *fallback1, const char *fallback2, int size);
+TTF_Font *open_ui_font(int size);
+TTF_Font *open_ui_font_bold(int size);
 
 
 int main()
@@ -104,9 +108,8 @@ int main()
     SDL_Window *win = SDL_CreateWindow("Subtractive Synth",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 700, 700, 0);
     SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
-
-    TTF_Font *font = TTF_OpenFont("/System/Library/Fonts/Supplemental/Arial.ttf", 18);
-    TTF_Font *font_main = TTF_OpenFont("/System/Library/Fonts/Supplemental/Arial Black.ttf", 18);
+    TTF_Font *font = open_ui_font(18);
+    TTF_Font *font_main = open_ui_font_bold(18);
 
 
     SDL_AudioSpec spec = {0};
@@ -176,7 +179,7 @@ int main()
 
                 if (fmod_on == 1)
                 {
-                    FMod *f = &fm;
+                    FMod *f = &fm[0];
 
                     if (e.key.keysym.sym == SDLK_q) f->fwave = (f->fwave + 1) % 4;
                     if (e.key.keysym.sym == SDLK_w) f->type = (f->type + 1) % 2;
@@ -195,6 +198,8 @@ int main()
                         fmod_on = 0;
                         continue;
                     }
+
+                    sync_fmod_settings();
                 }
             }
             if (e.type == SDL_KEYUP)
@@ -276,6 +281,11 @@ int main()
     }
 
     SDL_CloseAudio();
+    TTF_CloseFont(font);
+    TTF_CloseFont(font_main);
+    SDL_DestroyRenderer(ren);
+    SDL_DestroyWindow(win);
+    TTF_Quit();
     SDL_Quit();
 }
 /* ==== octave ==== */
@@ -342,6 +352,7 @@ float gen_voice(Voice *v)
     if (v->wave == WAVE_SQUARE) return sinf(v->phase) > 0 ? 1.0f : -1.0f;
     if (v->wave == WAVE_TRIANGLE) return asinf(sinf(v->phase)) * 2 / PI;
     if (v->wave == WAVE_SAW) return 2.0f * (v->phase / (2 * PI)) - 1.0f;
+    return 0.0f;
 }
 
 /* ===== frequency modulation  ===== */
@@ -354,7 +365,7 @@ float process_fmod(FMod *f, Voice *v)
     v->phase += 2 * PI * v->freq / SAMPLE_RATE;
     if (v->phase > 2 * PI) v->phase -= 2 * PI;
 
-    float mod; 
+    float mod = 0.0f;
 
     if (f->fwave == WAVE_SIN) mod = sinf(f->phase);
     if (f->fwave == WAVE_SQUARE) mod = (sinf(f->phase) > 0 ? 1.0f : -1.0f);
@@ -365,6 +376,35 @@ float process_fmod(FMod *f, Voice *v)
     if (v->wave == WAVE_SQUARE) return sinf(v->phase + f->betta * mod) > 0 ? 1.0f : -1.0f;
     if (v->wave == WAVE_TRIANGLE) return asinf(sinf(v->phase + f->betta * mod)) * 2 / PI;
     if (v->wave == WAVE_SAW) return 2.0f * ((v->phase + f->betta * mod) / (2 * PI)) - 1.0f;
+    return 0.0f;
+}
+
+void sync_fmod_settings()
+{
+    float base_freq = fm[0].freq;
+    float base_betta = fm[0].betta;
+    float base_ratio = fm[0].ratio;
+    WaveType base_fwave = fm[0].fwave;
+    FModType base_type = fm[0].type;
+
+    for (int i = 0; i < MAX_VOICES; i++)
+    {
+        fm[i].betta = base_betta;
+        fm[i].ratio = base_ratio;
+        fm[i].fwave = base_fwave;
+        fm[i].type = base_type;
+
+        if (!voices[i].active)
+        {
+            fm[i].freq = base_freq;
+            continue;
+        }
+
+        if (base_type == HARMONIC)
+            fm[i].freq = voices[i].freq * base_ratio;
+        else
+            fm[i].freq = base_freq;
+    }
 }
 
 void add_fmod()
@@ -378,12 +418,14 @@ void add_fmod()
     fm[0].fwave = WAVE_SIN;
     fm[0].type = INHARMONIC;
 
+    sync_fmod_settings();
     fmod_on = 1;
 }
 
 /* ===== audio ===== */
 void audio_callback(void *u, Uint8 *stream, int len)
 {
+    (void)u;
     float *buf = (float *)stream;
     int samples = len / sizeof(float);
 
@@ -396,7 +438,7 @@ void audio_callback(void *u, Uint8 *stream, int len)
             if (!voices[v].active) continue;
 
             if(fmod_on)
-                s += process_fmod(&fm, &voices[v]);
+                s += process_fmod(&fm[v], &voices[v]);
             else if (voices[v].active)
                 s += gen_voice(&voices[v]);
         }
@@ -413,12 +455,51 @@ void audio_callback(void *u, Uint8 *stream, int len)
 
 void draw_text(SDL_Renderer *r, TTF_Font *f, int x, int y, const char *txt, SDL_Color c)
 {
+    if (!f || !txt) return;
+
     SDL_Surface *s = TTF_RenderText_Solid(f, txt, c);
+    if (!s) return;
+
     SDL_Texture *t = SDL_CreateTextureFromSurface(r, s);
+    if (!t)
+    {
+        SDL_FreeSurface(s);
+        return;
+    }
+
     SDL_Rect dst = {x, y, s->w, s->h};
     SDL_RenderCopy(r, t, NULL, &dst);
     SDL_FreeSurface(s);
     SDL_DestroyTexture(t);
+}
+
+TTF_Font *open_font_fallback(const char *primary, const char *fallback1, const char *fallback2, int size)
+{
+    TTF_Font *font = TTF_OpenFont(primary, size);
+    if (!font) font = TTF_OpenFont(fallback1, size);
+    if (!font) font = TTF_OpenFont(fallback2, size);
+    if (font) return font;
+    return NULL;
+}
+
+TTF_Font *open_ui_font(int size)
+{
+    return open_font_fallback(
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
+        "/usr/share/fonts/liberation/LiberationSans-Regular.ttf",
+        size
+    );
+}
+
+TTF_Font *open_ui_font_bold(int size)
+{
+    return open_font_fallback(
+        "/System/Library/Fonts/Supplemental/Arial Black.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/liberation/LiberationSans-Bold.ttf",
+        size
+    );
 }
 
 void draw_wave(SDL_Renderer *r)
@@ -554,4 +635,3 @@ void draw_keyboard_hint(SDL_Renderer *r, TTF_Font *font)
         );
     }
 }
-
