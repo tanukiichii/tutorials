@@ -26,7 +26,7 @@ typedef struct {
     float freq;
     float phase;
     float betta;
-    float ratio; 
+    float ratio;
     WaveType fwave;
     FModType type;
 } FMod;
@@ -73,6 +73,7 @@ SDL_Rect button_add = {20, 20, 60, 40};
 /* ==== octave ==== */
 void octave_up();
 void octave_down();
+void sync_fmod_settings();
 
 /* ==== poliphony ==== */
 void init_voices();
@@ -94,6 +95,9 @@ void audio_callback(void *u, Uint8 *stream, int len);
 void draw_text(SDL_Renderer *r, TTF_Font *f, int x, int y, const char *txt, SDL_Color c);
 void draw_wave(SDL_Renderer *r);
 void draw_keyboard_hint(SDL_Renderer *r, TTF_Font *font);
+TTF_Font *open_font_fallback(const char *primary, const char *fallback1, const char *fallback2, int size);
+TTF_Font *open_ui_font(int size);
+TTF_Font *open_ui_font_bold(int size);
 
 
 int main()
@@ -104,9 +108,8 @@ int main()
     SDL_Window *win = SDL_CreateWindow("Subtractive Synth",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 700, 700, 0);
     SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
-
-    TTF_Font *font = TTF_OpenFont("/System/Library/Fonts/Supplemental/Arial.ttf", 18);
-    TTF_Font *font_main = TTF_OpenFont("/System/Library/Fonts/Supplemental/Arial Black.ttf", 18);
+    TTF_Font *font = open_ui_font(18);
+    TTF_Font *font_main = open_ui_font_bold(18);
 
 
     SDL_AudioSpec spec = {0};
@@ -150,9 +153,9 @@ int main()
 
                 if (e.key.keysym.sym == SDLK_TAB)
                     voices[0].wave = (voices[0].wave + 1) % 4;
-                if (e.key.keysym.sym == SDLK_1) 
+                if (e.key.keysym.sym == SDLK_1)
                     if(keymap[0].freq > 27.50f) octave_down();
-                if (e.key.keysym.sym == SDLK_2) 
+                if (e.key.keysym.sym == SDLK_2)
                     if (keymap[0].freq < 1760.0) octave_up();
 
                 for (int i = 0; i < keymap_size; i++)
@@ -176,7 +179,7 @@ int main()
 
                 if (fmod_on == 1)
                 {
-                    FMod *f = &fm;
+                    FMod *f = &fm[0];
 
                     if (e.key.keysym.sym == SDLK_q) f->fwave = (f->fwave + 1) % 4;
                     if (e.key.keysym.sym == SDLK_w) f->type = (f->type + 1) % 2;
@@ -195,6 +198,8 @@ int main()
                         fmod_on = 0;
                         continue;
                     }
+
+                    sync_fmod_settings();
                 }
             }
             if (e.type == SDL_KEYUP)
@@ -249,7 +254,7 @@ int main()
             draw_text(ren, font, 30, y, buf, white);
         }
         else if (fmod_on == 1 && fm[0].type == HARMONIC)
-        {   
+        {
             char buf[128];
             sprintf(buf, "Harmonic modulator");
 
@@ -264,9 +269,11 @@ int main()
         draw_text(ren, font, 200, 640,
             " + add modulator | 1/2 octave | ESC exit", white);
 
-        draw_text(ren, font, 70, 670,    
-            "Q modulator waveform | W modulator type | arrows freq/amp | A/S ratio", white);
-        
+        draw_text(ren, font, 70, 662,
+            "Q modulator waveform | W modulator type | arrows freq/amp", white);
+        draw_text(ren, font, 275, 684,
+            "E/R ratio", white);
+
         draw_wave(ren);
         draw_keyboard_hint(ren, font);
 
@@ -276,6 +283,11 @@ int main()
     }
 
     SDL_CloseAudio();
+    TTF_CloseFont(font);
+    TTF_CloseFont(font_main);
+    SDL_DestroyRenderer(ren);
+    SDL_DestroyWindow(win);
+    TTF_Quit();
     SDL_Quit();
 }
 /* ==== octave ==== */
@@ -300,7 +312,7 @@ void octave_down()
 void init_voices()
 {
     for (int i = 0; i < MAX_VOICES; i++)
-    {    
+    {
         voices[i].active = 0;
         voices[i].wave = WAVE_SIN;
     }
@@ -319,7 +331,7 @@ int alloc_voice()
     for (int i = 0; i < MAX_VOICES; i++)
         if (!voices[i].active)
             return i;
-    return 0; 
+    return 0;
 }
 
 int is_key_active(SDL_Keycode key)
@@ -342,6 +354,7 @@ float gen_voice(Voice *v)
     if (v->wave == WAVE_SQUARE) return sinf(v->phase) > 0 ? 1.0f : -1.0f;
     if (v->wave == WAVE_TRIANGLE) return asinf(sinf(v->phase)) * 2 / PI;
     if (v->wave == WAVE_SAW) return 2.0f * (v->phase / (2 * PI)) - 1.0f;
+    return 0.0f;
 }
 
 /* ===== frequency modulation  ===== */
@@ -350,11 +363,11 @@ float process_fmod(FMod *f, Voice *v)
 {
     f->phase += 2 * PI * f->freq / SAMPLE_RATE;
     if (f->phase > 2 * PI) f->phase -= 2 * PI;
-    
+
     v->phase += 2 * PI * v->freq / SAMPLE_RATE;
     if (v->phase > 2 * PI) v->phase -= 2 * PI;
 
-    float mod; 
+    float mod = 0.0f;
 
     if (f->fwave == WAVE_SIN) mod = sinf(f->phase);
     if (f->fwave == WAVE_SQUARE) mod = (sinf(f->phase) > 0 ? 1.0f : -1.0f);
@@ -365,6 +378,35 @@ float process_fmod(FMod *f, Voice *v)
     if (v->wave == WAVE_SQUARE) return sinf(v->phase + f->betta * mod) > 0 ? 1.0f : -1.0f;
     if (v->wave == WAVE_TRIANGLE) return asinf(sinf(v->phase + f->betta * mod)) * 2 / PI;
     if (v->wave == WAVE_SAW) return 2.0f * ((v->phase + f->betta * mod) / (2 * PI)) - 1.0f;
+    return 0.0f;
+}
+
+void sync_fmod_settings()
+{
+    float base_freq = fm[0].freq;
+    float base_betta = fm[0].betta;
+    float base_ratio = fm[0].ratio;
+    WaveType base_fwave = fm[0].fwave;
+    FModType base_type = fm[0].type;
+
+    for (int i = 0; i < MAX_VOICES; i++)
+    {
+        fm[i].betta = base_betta;
+        fm[i].ratio = base_ratio;
+        fm[i].fwave = base_fwave;
+        fm[i].type = base_type;
+
+        if (!voices[i].active)
+        {
+            fm[i].freq = base_freq;
+            continue;
+        }
+
+        if (base_type == HARMONIC)
+            fm[i].freq = voices[i].freq * base_ratio;
+        else
+            fm[i].freq = base_freq;
+    }
 }
 
 void add_fmod()
@@ -378,12 +420,14 @@ void add_fmod()
     fm[0].fwave = WAVE_SIN;
     fm[0].type = INHARMONIC;
 
+    sync_fmod_settings();
     fmod_on = 1;
 }
 
 /* ===== audio ===== */
 void audio_callback(void *u, Uint8 *stream, int len)
 {
+    (void)u;
     float *buf = (float *)stream;
     int samples = len / sizeof(float);
 
@@ -392,11 +436,11 @@ void audio_callback(void *u, Uint8 *stream, int len)
         float s = 0.0f;
 
         for (int v = 0; v < MAX_VOICES; v++)
-        {  
+        {
             if (!voices[v].active) continue;
 
             if(fmod_on)
-                s += process_fmod(&fm, &voices[v]);
+                s += process_fmod(&fm[v], &voices[v]);
             else if (voices[v].active)
                 s += gen_voice(&voices[v]);
         }
@@ -413,12 +457,51 @@ void audio_callback(void *u, Uint8 *stream, int len)
 
 void draw_text(SDL_Renderer *r, TTF_Font *f, int x, int y, const char *txt, SDL_Color c)
 {
+    if (!f || !txt) return;
+
     SDL_Surface *s = TTF_RenderText_Solid(f, txt, c);
+    if (!s) return;
+
     SDL_Texture *t = SDL_CreateTextureFromSurface(r, s);
+    if (!t)
+    {
+        SDL_FreeSurface(s);
+        return;
+    }
+
     SDL_Rect dst = {x, y, s->w, s->h};
     SDL_RenderCopy(r, t, NULL, &dst);
     SDL_FreeSurface(s);
     SDL_DestroyTexture(t);
+}
+
+TTF_Font *open_font_fallback(const char *primary, const char *fallback1, const char *fallback2, int size)
+{
+    TTF_Font *font = TTF_OpenFont(primary, size);
+    if (!font) font = TTF_OpenFont(fallback1, size);
+    if (!font) font = TTF_OpenFont(fallback2, size);
+    if (font) return font;
+    return NULL;
+}
+
+TTF_Font *open_ui_font(int size)
+{
+    return open_font_fallback(
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
+        "/usr/share/fonts/liberation/LiberationSans-Regular.ttf",
+        size
+    );
+}
+
+TTF_Font *open_ui_font_bold(int size)
+{
+    return open_font_fallback(
+        "/System/Library/Fonts/Supplemental/Arial Black.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/liberation/LiberationSans-Bold.ttf",
+        size
+    );
 }
 
 void draw_wave(SDL_Renderer *r)
@@ -485,13 +568,13 @@ void draw_keyboard_hint(SDL_Renderer *r, TTF_Font *font)
     const int black_pos[] = {0,2,3,5,6,7};
     const char *black_labels[] = {"S","F","G","J","K","L"};
 
-    SDL_Keycode white_keys[] = 
+    SDL_Keycode white_keys[] =
     {
         SDLK_z, SDLK_x, SDLK_c, SDLK_v, SDLK_b,
         SDLK_n, SDLK_m, SDLK_COMMA, SDLK_PERIOD, SDLK_SLASH
     };
 
-    SDL_Keycode black_keys[] = 
+    SDL_Keycode black_keys[] =
     {
         SDLK_s, SDLK_f, SDLK_g, SDLK_j, SDLK_k, SDLK_l
     };
@@ -508,7 +591,7 @@ void draw_keyboard_hint(SDL_Renderer *r, TTF_Font *font)
         };
 
         if (is_key_active(white_keys[i]))
-            SDL_SetRenderDrawColor(r, 194, 155, 162, 255); 
+            SDL_SetRenderDrawColor(r, 194, 155, 162, 255);
         else
             SDL_SetRenderDrawColor(r, 230, 230, 230,255);
 
@@ -538,7 +621,7 @@ void draw_keyboard_hint(SDL_Renderer *r, TTF_Font *font)
         };
 
         if (is_key_active(black_keys[i]))
-            SDL_SetRenderDrawColor(r, 150, 120, 126,255); 
+            SDL_SetRenderDrawColor(r, 150, 120, 126,255);
         else
             SDL_SetRenderDrawColor(r, 40,40,40,255);
 
@@ -554,4 +637,3 @@ void draw_keyboard_hint(SDL_Renderer *r, TTF_Font *font)
         );
     }
 }
-
