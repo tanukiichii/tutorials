@@ -26,7 +26,7 @@ typedef struct {
     float freq;
     float phase;
     float betta;
-    float ratio; 
+    float ratio;
     WaveType fwave;
     FModType type;
 } FMod;
@@ -153,9 +153,9 @@ int main()
 
                 if (e.key.keysym.sym == SDLK_TAB)
                     voices[0].wave = (voices[0].wave + 1) % 4;
-                if (e.key.keysym.sym == SDLK_1) 
+                if (e.key.keysym.sym == SDLK_1)
                     if(keymap[0].freq > 27.50f) octave_down();
-                if (e.key.keysym.sym == SDLK_2) 
+                if (e.key.keysym.sym == SDLK_2)
                     if (keymap[0].freq < 1760.0) octave_up();
 
                 for (int i = 0; i < keymap_size; i++)
@@ -254,7 +254,7 @@ int main()
             draw_text(ren, font, 30, y, buf, white);
         }
         else if (fmod_on == 1 && fm[0].type == HARMONIC)
-        {   
+        {
             char buf[128];
             sprintf(buf, "Harmonic modulator");
 
@@ -269,9 +269,11 @@ int main()
         draw_text(ren, font, 200, 640,
             " + add modulator | 1/2 octave | ESC exit", white);
 
-        draw_text(ren, font, 70, 670,    
-            "Q modulator waveform | W modulator type | arrows freq/amp | A/S ratio", white);
-        
+        draw_text(ren, font, 70, 662,
+            "Q modulator waveform | W modulator type | arrows freq/amp", white);
+        draw_text(ren, font, 275, 684,
+            "E/R ratio", white);
+
         draw_wave(ren);
         draw_keyboard_hint(ren, font);
 
@@ -310,7 +312,7 @@ void octave_down()
 void init_voices()
 {
     for (int i = 0; i < MAX_VOICES; i++)
-    {    
+    {
         voices[i].active = 0;
         voices[i].wave = WAVE_SIN;
     }
@@ -329,7 +331,7 @@ int alloc_voice()
     for (int i = 0; i < MAX_VOICES; i++)
         if (!voices[i].active)
             return i;
-    return 0; 
+    return 0;
 }
 
 int is_key_active(SDL_Keycode key)
@@ -361,7 +363,7 @@ float process_fmod(FMod *f, Voice *v)
 {
     f->phase += 2 * PI * f->freq / SAMPLE_RATE;
     if (f->phase > 2 * PI) f->phase -= 2 * PI;
-    
+
     v->phase += 2 * PI * v->freq / SAMPLE_RATE;
     if (v->phase > 2 * PI) v->phase -= 2 * PI;
 
@@ -434,7 +436,7 @@ void audio_callback(void *u, Uint8 *stream, int len)
         float s = 0.0f;
 
         for (int v = 0; v < MAX_VOICES; v++)
-        {  
+        {
             if (!voices[v].active) continue;
 
             if(fmod_on)
@@ -566,13 +568,13 @@ void draw_keyboard_hint(SDL_Renderer *r, TTF_Font *font)
     const int black_pos[] = {0,2,3,5,6,7};
     const char *black_labels[] = {"S","F","G","J","K","L"};
 
-    SDL_Keycode white_keys[] = 
+    SDL_Keycode white_keys[] =
     {
         SDLK_z, SDLK_x, SDLK_c, SDLK_v, SDLK_b,
         SDLK_n, SDLK_m, SDLK_COMMA, SDLK_PERIOD, SDLK_SLASH
     };
 
-    SDL_Keycode black_keys[] = 
+    SDL_Keycode black_keys[] =
     {
         SDLK_s, SDLK_f, SDLK_g, SDLK_j, SDLK_k, SDLK_l
     };
@@ -589,7 +591,7 @@ void draw_keyboard_hint(SDL_Renderer *r, TTF_Font *font)
         };
 
         if (is_key_active(white_keys[i]))
-            SDL_SetRenderDrawColor(r, 194, 155, 162, 255); 
+            SDL_SetRenderDrawColor(r, 194, 155, 162, 255);
         else
             SDL_SetRenderDrawColor(r, 230, 230, 230,255);
 
@@ -619,7 +621,7 @@ void draw_keyboard_hint(SDL_Renderer *r, TTF_Font *font)
         };
 
         if (is_key_active(black_keys[i]))
-            SDL_SetRenderDrawColor(r, 150, 120, 126,255); 
+            SDL_SetRenderDrawColor(r, 150, 120, 126,255);
         else
             SDL_SetRenderDrawColor(r, 40,40,40,255);
 
