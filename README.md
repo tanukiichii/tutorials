@@ -19,6 +19,7 @@ You’ll find things like:
 - [**Subtractive Synthesis**](./subtractive_synthesis/)  
 - [**Drum sample synth**](./noise_envelope/)
 - [**FM Synth**](./fm_synthesis/)
+- [**Trautonium**](./trautonium/)
 - Other small sound experiments  
 
 Each folder is its own mini-project with its own README explaining what’s going on.
